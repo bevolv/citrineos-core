@@ -168,7 +168,14 @@ export function createLocalConfig() {
         },
       },
       authProvider: {
-        localByPass: true,
+        apiKey: {
+          apiKey:
+            process.env.CITRINEOS_API_KEY ||
+            'ctos_api_4f7e8d9c2b1a6f5e4d3c8b7a9f2e1d6c5b4a3f8e7d9c2b1a',
+          secretKey:
+            process.env.CITRINEOS_SECRET_KEY ||
+            'sk_live_8a7f9e2d1c6b5a4f3e8d7c2b9a1f6e5d4c3b8a7f9e2d1c6b5a4f3e8d7c2b9a1f',
+        },
       },
       swagger: {
         path: '/docs',
