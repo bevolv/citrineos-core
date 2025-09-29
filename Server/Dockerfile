@@ -7,19 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Dependencies stage
-FROM base AS deps
-COPY package*.json ./
-COPY */package*.json ./
-RUN npm ci --only=production --ignore-scripts && npm cache clean --force
-
 # Build stage
 FROM base AS build
-COPY package*.json ./
-COPY */package*.json ./
-RUN npm ci --ignore-scripts
 COPY . .
-RUN npm run build && npm prune --production
+RUN npm run install-all && npm run build
 
 # Production stage
 FROM node:22-slim AS production
