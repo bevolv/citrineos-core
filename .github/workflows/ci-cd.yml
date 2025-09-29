@@ -1,0 +1,93 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [develop, deploy-to-ec2]
+  pull_request:
+    branches: [develop, deploy-to-ec2]
+
+permissions:
+  packages: write
+  contents: read
+
+env:
+  DOMAIN: citrineos.vertix.digital
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: npm run install-all --frozen-lockfile
+        
+      - name: Build applications
+        run: npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/bevolv/citrineos-core/api:latest
+            ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
+          build-args: |
+            DOMAIN=citrineos.vertix.digital
+            
+  deploy:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push-image
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Pull latest image
+      uses: appleboy/ssh-action@master
+      with:
+        host: citrineos.vertix.digital
+        username: deploy
+        key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        script: |
+          docker pull ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
+
+    - name: create env file
+      run: |
+        echo "GIT_COMMIT_HASH=${{ github.sha }}" >> ./envfile
+
+    - name: Docker Stack Deploy
+      uses: cssnr/stack-deploy-action@v1
+      with:
+        name: citrine-stack
+        file: docker-stack.yaml
+        host: citrineos.vertix.digital
+        user: deploy
+        ssh_key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        env_file: ./envfile
+        registry_host: ghcr.io
+        registry_user: ${{ github.actor }}
+        registry_pass: ${{ secrets.GITHUB_TOKEN }}
+        registry_auth: true
+        mode: swarm
+        detach: true
+        resolve_image: always

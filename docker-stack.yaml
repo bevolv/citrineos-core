@@ -1,0 +1,179 @@
+networks:
+  citrineos-network:
+    driver: overlay
+    attachable: true
+  traefik-network:
+    driver: overlay
+    external: true
+
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik-network
+      
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=ishrath.inaam@bevolv.co
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --log.level=INFO
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+    networks:
+      - traefik-network
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+        - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  citrineos:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/citrineos-core:${GIT_COMMIT_HASH:-latest}
+    environment:
+      - APP_ENV=swarm.docker
+      - CITRINEOS_util_messageBroker_amqp_url=amqp://guest:guest@amqp-broker:5672
+      - CITRINEOS_data_sequelize_host=postgres
+      - CITRINEOS_util_cache_redis_host=redis
+      - CITRINEOS_util_fileAccess_directus_host=directus
+    networks:
+      - citrineos-network
+      - traefik-network
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.citrineos-api.rule=Host(`api.${DOMAIN}`)"
+        - "traefik.http.routers.citrineos-api.tls.certresolver=letsencrypt"
+        - "traefik.http.services.citrineos-api.loadbalancer.server.port=8080"
+        - "traefik.http.routers.citrineos-ws.rule=Host(`ws.${DOMAIN}`)"
+        - "traefik.http.routers.citrineos-ws.tls.certresolver=letsencrypt"
+        - "traefik.http.services.citrineos-ws.loadbalancer.server.port=8081"
+        - "traefik.http.routers.citrineos-ws-auth.rule=Host(`ws-auth.${DOMAIN}`)"
+        - "traefik.http.routers.citrineos-ws-auth.tls.certresolver=letsencrypt"
+        - "traefik.http.services.citrineos-ws-auth.loadbalancer.server.port=8082"
+
+  postgres:
+    image: postgis/postgis:15-3.3
+    environment:
+      - POSTGRES_DB=citrine
+      - POSTGRES_USER=citrine
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - citrineos-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+
+  amqp-broker:
+    image: rabbitmq:3.12-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - citrineos-network
+      - traefik-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)"
+        - "traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt"
+        - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - citrineos-network
+    volumes:
+      - redis-data:/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  directus:
+    image: directus/directus:10.8.3
+    environment:
+      - KEY=${DIRECTUS_KEY}
+      - SECRET=${DIRECTUS_SECRET}
+      - DB_CLIENT=pg
+      - DB_HOST=directus-db
+      - DB_PORT=5432
+      - DB_DATABASE=directus
+      - DB_USER=directus
+      - DB_PASSWORD=${DIRECTUS_DB_PASSWORD}
+      - ADMIN_EMAIL=admin@citrineos.com
+      - ADMIN_PASSWORD=${DIRECTUS_ADMIN_PASSWORD}
+      - PUBLIC_URL=https://directus.${DOMAIN}
+    volumes:
+      - directus-uploads:/directus/uploads
+    networks:
+      - citrineos-network
+      - traefik-network
+    depends_on:
+      - directus-db
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.directus.rule=Host(`directus.${DOMAIN}`)"
+        - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
+        - "traefik.http.services.directus.loadbalancer.server.port=8055"
+
+  directus-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=directus
+      - POSTGRES_USER=directus
+      - POSTGRES_PASSWORD=${DIRECTUS_DB_PASSWORD}
+    volumes:
+      - directus-database:/var/lib/postgresql/data
+    networks:
+      - citrineos-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+volumes:
+  traefik-letsencrypt:
+  postgres-data:
+  rabbitmq-data:
+  redis-data:
+  directus-uploads:
+  directus-database:
