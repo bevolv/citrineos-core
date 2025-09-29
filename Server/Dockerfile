@@ -2,8 +2,14 @@
 FROM node:22 AS build
 WORKDIR /usr/local/apps/citrineos
 
+# Copy the entire project (needed for monorepo workspace dependencies)
 COPY . .
-RUN npm run install-all && npm run build
+
+# Install all workspace dependencies from the root
+RUN npm run install-all
+
+# Build all packages from the root (handles workspace dependencies correctly)
+RUN npm run build
 
 # Production stage
 FROM node:22-slim AS production
