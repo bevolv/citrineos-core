@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Build stage
 FROM base AS build
 COPY . .
-RUN npm run install-all && npm run build
+# Install all dependencies and build the entire workspace
+RUN npm install --verbose && npm run build
 
 # Production stage
 FROM node:22-slim AS production
