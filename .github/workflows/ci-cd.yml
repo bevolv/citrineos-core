@@ -17,19 +17,20 @@ jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v3.5
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
+          cache: 'npm'
           
       - name: Install dependencies
         run: npm run install-all --frozen-lockfile
@@ -60,7 +61,7 @@ jobs:
       - build-and-push-image
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Pull latest image
       uses: appleboy/ssh-action@master
