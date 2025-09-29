@@ -56,7 +56,20 @@ export class GraphQLAuthWebhook {
       const headers =
         request.method === 'GET' ? request.headers : (request.body as any)?.headers || {};
 
-      // Extract Authorization header
+      // Check for admin secret first
+      const adminSecret = headers['x-hasura-admin-secret'];
+      if (adminSecret === 'CitrineOS!') {
+        this._logger.debug('GraphQL admin authentication successful');
+        return reply.send({
+          'X-Hasura-User-Id': 'admin',
+          'X-Hasura-Role': 'admin',
+          'X-Hasura-Allowed-Roles': 'admin,user',
+          'X-Hasura-Default-Role': 'admin',
+          'X-Hasura-Tenant-Id': '1',
+        });
+      }
+
+      // Extract Authorization header for regular user authentication
       const authHeader = headers['authorization'] || headers['Authorization'];
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return reply.code(401).send({
