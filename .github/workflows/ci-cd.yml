@@ -75,6 +75,13 @@ jobs:
     - name: create env file
       run: |
         echo "GIT_COMMIT_HASH=${{ github.sha }}" >> ./envfile
+        echo "DOMAIN=citrineos.vertix.digital" >> ./envfile
+        echo "BOOTSTRAP_CITRINEOS_DATABASE_HOST=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_HOST }}" >> ./envfile
+        echo "BOOTSTRAP_CITRINEOS_DATABASE_PORT=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_PORT }}" >> ./envfile
+        echo "BOOTSTRAP_CITRINEOS_DATABASE_NAME=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_NAME }}" >> ./envfile
+        echo "BOOTSTRAP_CITRINEOS_DATABASE_DIALECT=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_DIALECT }}" >> ./envfile
+        echo "BOOTSTRAP_CITRINEOS_DATABASE_USERNAME=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_USERNAME }}" >> ./envfile
+        echo "BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD }}" >> ./envfile
 
     - name: Docker Stack Deploy
       uses: cssnr/stack-deploy-action@v1
