@@ -42,7 +42,12 @@ services:
         - "traefik.http.services.traefik.loadbalancer.server.port=8080"
 
   citrineos:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/citrineos-core:${GIT_COMMIT_HASH:-latest}
+    image: ghcr.io/bevolv/citrineos-core:${GIT_COMMIT_HASH:-latest}
+    depends_on:
+      - postgres
+      - amqp-broker
+      - redis
+      - directus
     environment:
       - APP_ENV=swarm.docker
       - CITRINEOS_util_messageBroker_amqp_url=amqp://guest:guest@amqp-broker:5672
@@ -79,7 +84,7 @@ services:
     environment:
       - POSTGRES_DB=citrine
       - POSTGRES_USER=citrine
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-citrineos}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -95,7 +100,7 @@ services:
     image: rabbitmq:3.12-management
     environment:
       - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     networks:
@@ -126,6 +131,8 @@ services:
 
   directus:
     image: directus/directus:10.8.3
+    depends_on:
+      - directus-db
     environment:
       - KEY=${DIRECTUS_KEY}
       - SECRET=${DIRECTUS_SECRET}
@@ -134,9 +141,9 @@ services:
       - DB_PORT=5432
       - DB_DATABASE=directus
       - DB_USER=directus
-      - DB_PASSWORD=${DIRECTUS_DB_PASSWORD}
+      - DB_PASSWORD=${DIRECTUS_DB_PASSWORD:-directus}
       - ADMIN_EMAIL=admin@citrineos.com
-      - ADMIN_PASSWORD=${DIRECTUS_ADMIN_PASSWORD}
+      - ADMIN_PASSWORD=${DIRECTUS_ADMIN_PASSWORD:-admin}
       - PUBLIC_URL=https://directus.${DOMAIN}
     volumes:
       - directus-uploads:/directus/uploads
@@ -160,7 +167,7 @@ services:
     environment:
       - POSTGRES_DB=directus
       - POSTGRES_USER=directus
-      - POSTGRES_PASSWORD=${DIRECTUS_DB_PASSWORD}
+      - POSTGRES_PASSWORD=${DIRECTUS_DB_PASSWORD:-directus}
     volumes:
       - directus-database:/var/lib/postgresql/data
     networks:
