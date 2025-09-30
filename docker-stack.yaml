@@ -150,8 +150,6 @@ services:
     networks:
       - citrineos-network
       - traefik-network
-    depends_on:
-      - directus-db
     deploy:
       replicas: 1
       restart_policy:
