@@ -67,7 +67,7 @@ jobs:
       uses: appleboy/ssh-action@master
       with:
         host: citrineos.vertix.digital
-        username: ubuntu
+        username: deploy
         key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         script: |
           docker pull ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
