@@ -42,7 +42,7 @@ services:
         - "traefik.http.services.traefik.loadbalancer.server.port=8080"
 
   citrineos:
-    image: ghcr.io/bevolv/citrineos-core:${GIT_COMMIT_HASH:-latest}
+    image: ghcr.io/bevolv/citrineos-core/api:${GIT_COMMIT_HASH:-latest}
     depends_on:
       - postgres
       - amqp-broker
