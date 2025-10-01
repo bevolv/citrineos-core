@@ -105,7 +105,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "${BOOTSTRAP_CITRINEOS_DATABASE_PORT:-5433}:5433"
+      - "5433:5432"
     networks:
       - citrineos-network
     deploy:
