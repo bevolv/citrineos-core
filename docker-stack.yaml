@@ -12,13 +12,18 @@ services:
     command:
       - --api.dashboard=true
       - --api.insecure=false
-      
+
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=traefik-network
       
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+
+      - --entryPoints.web.http.redirections.entryPoint.to=websecure
+      - --entryPoints.web.http.redirections.entryPoint.scheme=https
       
+      - --certificatesResolvers.myresolver.acme.httpChallenge.entryPoint=web
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
       - --certificatesresolvers.letsencrypt.acme.email=ishrath.inaam@bevolv.co
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
@@ -26,7 +31,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-letsencrypt:/letsencrypt
@@ -35,11 +39,25 @@ services:
     deploy:
       placement:
         constraints: [node.role == manager]
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
-        - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.enable=true"
+      # Redirect HTTP -> HTTPS
+      - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # Dashboard routing
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)" 
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+
+      # Basic auth middleware for dashboard
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=ishrath:$$apr1$$h4SDjPzz$$Uxkt5ipUX1lsUgEoQUERz1"
 
   citrineos:
     image: ghcr.io/bevolv/citrineos-core/api:${GIT_COMMIT_HASH:-latest}
@@ -67,17 +85,17 @@ services:
         condition: on-failure
         delay: 5s
         max_attempts: 3
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.citrineos-api.rule=Host(`api.${DOMAIN}`)"
-        - "traefik.http.routers.citrineos-api.tls.certresolver=letsencrypt"
-        - "traefik.http.services.citrineos-api.loadbalancer.server.port=8080"
-        - "traefik.http.routers.citrineos-ws.rule=Host(`ws.${DOMAIN}`)"
-        - "traefik.http.routers.citrineos-ws.tls.certresolver=letsencrypt"
-        - "traefik.http.services.citrineos-ws.loadbalancer.server.port=8081"
-        - "traefik.http.routers.citrineos-ws-auth.rule=Host(`ws-auth.${DOMAIN}`)"
-        - "traefik.http.routers.citrineos-ws-auth.tls.certresolver=letsencrypt"
-        - "traefik.http.services.citrineos-ws-auth.loadbalancer.server.port=8082"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.citrineos-api.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.citrineos-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.citrineos-api.loadbalancer.server.port=8080"
+      - "traefik.http.routers.citrineos-ws.rule=Host(`ws.${DOMAIN}`)"
+      - "traefik.http.routers.citrineos-ws.tls.certresolver=letsencrypt"
+      - "traefik.http.services.citrineos-ws.loadbalancer.server.port=8081"
+      - "traefik.http.routers.citrineos-ws-auth.rule=Host(`ws-auth.${DOMAIN}`)"
+      - "traefik.http.routers.citrineos-ws-auth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.citrineos-ws-auth.loadbalancer.server.port=8082"
 
   postgres:
     image: postgis/postgis:15-3.3
@@ -88,6 +106,8 @@ services:
       - PGPORT=${BOOTSTRAP_CITRINEOS_DATABASE_PORT:-5433}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${BOOTSTRAP_CITRINEOS_DATABASE_PORT:-5433}:5433"
     networks:
       - citrineos-network
     deploy:
@@ -113,11 +133,11 @@ services:
         constraints: [node.role == manager]
       restart_policy:
         condition: on-failure
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)"
-        - "traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt"
-        - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)"
+      - "traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt"
+      - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
 
   redis:
     image: redis:7-alpine
@@ -155,11 +175,11 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.directus.rule=Host(`directus.${DOMAIN}`)"
-        - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
-        - "traefik.http.services.directus.loadbalancer.server.port=8055"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.directus.rule=Host(`directus.${DOMAIN}`)"
+      - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.directus.loadbalancer.server.port=8055"
 
   directus-db:
     image: postgres:15
