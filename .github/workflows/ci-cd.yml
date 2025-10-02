@@ -14,7 +14,7 @@ env:
   DOMAIN: citrineos.vertix.digital
 
 jobs:
-  build-and-push-image:
+  build-and-push-citrineos-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -54,11 +54,56 @@ jobs:
             ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
           build-args: |
             DOMAIN=citrineos.vertix.digital
+
+  build-and-push-everest-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm run install-all --frozen-lockfile
+        
+      - name: Build applications
+        run: npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Server/everest/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/bevolv/citrineos-core/everest:latest
+            ghcr.io/bevolv/citrineos-core/everest:${{ github.sha }}
+          build-args: |
+            DOMAIN=citrineos.vertix.digital
+            EVEREST_IMAGE_TAG=0.0.23
+            EVEREST_TARGET_URL=ws://host.docker.internal:8081/cp001
+            OCPP_VERSION=two
             
   deploy:
     runs-on: ubuntu-latest
     needs:
-      - build-and-push-image
+      - build-and-push-citrineos-image
+      - build-and-push-everest-image
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
@@ -82,6 +127,9 @@ jobs:
         echo "BOOTSTRAP_CITRINEOS_DATABASE_DIALECT=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_DIALECT }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_USERNAME=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_USERNAME }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD }}" >> ./envfile
+        echo "EVEREST_IMAGE_TAG=0.0.23" >> ./envfile
+        echo "EVEREST_TARGET_URL=ws://host.docker.internal:8081/cp001" >> ./envfile
+        echo "OCPP_VERSION=two" >> ./envfile
 
     - name: Docker Stack Deploy
       uses: cssnr/stack-deploy-action@v1

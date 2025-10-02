@@ -256,3 +256,72 @@ services:
       timeout: 10s
       retries: 20
       start_period: 5s
+
+# Everest Config
+  mqtt-server:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    logging:
+      driver: none
+    networks:
+      - backend
+
+  manager:
+    image: ghcr.io/bevolv/citrineos-core/everest:${GIT_COMMIT_HASH:-latest}
+    platform: linux/x86_64
+    ports:
+      - 8888:8888
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: '4G'
+    depends_on:
+      - mqtt-server
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server
+      - EVEREST_TARGET_URL=${EVEREST_TARGET_URL}
+      - OCPP_VERSION=${OCPP_VERSION}
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - backend
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.everest-manager.rule=Host(`everest.${DOMAIN}`)
+      - traefik.http.routers.everest-manager.entrypoints=websecure
+      - traefik.http.routers.everest-manager.tls.certresolver=letsencrypt
+      - traefik.http.services.everest-manager.loadbalancer.server.port=8888
+
+  nodered:
+    image: ghcr.io/everest/everest-demo/nodered:${EVEREST_IMAGE_TAG}
+    depends_on:
+      - mqtt-server
+    ports:
+      - 1880:1880
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server
+      - FLOWS=/config/config-sil-two-evse-flow.json
+    networks:
+      - backend
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nodered.rule=Host(`nodered.${DOMAIN}`)
+      - traefik.http.routers.nodered.entrypoints=websecure
+      - traefik.http.routers.nodered.tls.certresolver=letsencrypt
+      - traefik.http.services.nodered.loadbalancer.server.port=1880
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
