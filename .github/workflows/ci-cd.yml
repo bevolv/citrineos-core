@@ -116,6 +116,7 @@ jobs:
         key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         script: |
           docker pull ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
+          docker pull ghcr.io/bevolv/citrineos-core/everest:${{ github.sha }}
 
     - name: create env file
       run: |
