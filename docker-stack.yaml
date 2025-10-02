@@ -184,6 +184,9 @@ services:
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
       BOOTSTRAP_CITRINEOS_DATABASE_HOST: 'ocpp-db'
+      BOOTSTRAP_CITRINEOS_DATABASE_USERNAME: '${BOOTSTRAP_CITRINEOS_DATABASE_USERNAME:-citrine}'
+      BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD: '${POSTGRES_PASSWORD:-citrineos}'
+      BOOTSTRAP_CITRINEOS_DATABASE_PORT: '${BOOTSTRAP_CITRINEOS_DATABASE_PORT:-5432}'
       BOOTSTRAP_CITRINEOS_CONFIG_FILENAME: 'config.json'
       BOOTSTRAP_CITRINEOS_FILE_ACCESS_TYPE: 'local'
       BOOTSTRAP_CITRINEOS_FILE_ACCESS_LOCAL_DEFAULT_FILE_PATH: '/data'
@@ -224,7 +227,7 @@ services:
   graphql-engine:
     image: hasura/graphql-engine:v2.40.3.cli-migrations-v3
     environment:
-      HASURA_GRAPHQL_DATABASE_URL: postgres://citrine:citrine@ocpp-db:5432/citrine
+      HASURA_GRAPHQL_DATABASE_URL: postgres://citrine:${POSTGRES_PASSWORD}@ocpp-db:5432/citrine
       HASURA_GRAPHQL_ENABLE_CONSOLE: 'true'
       HASURA_GRAPHQL_DEV_MODE: 'false'  # Set to false for production
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
