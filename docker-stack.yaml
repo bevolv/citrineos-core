@@ -59,11 +59,12 @@ services:
       - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       # Dashboard
-      - traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)
-      - traefik.http.routers.traefik.entrypoints=websecure
-      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
-      # - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)
+      - traefik.http.routers.traefik-dashboard.service=api@internal
       - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - traefik.http.routers.traefik-dashboard.entrypoints=websecure
+      - traefik.http.routers.traefik-dashboard.tls=true
+      - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
       # Basic auth middleware for dashboard
       - "traefik.http.middlewares.traefik-auth.basicauth.users=ishrath:$$apr1$$h4SDjPzz$$Uxkt5ipUX1lsUgEoQUERz1"
 
@@ -133,22 +134,22 @@ services:
     networks:
       - backend
       - traefik
+    labels:
+      # MinIO Console
+      - traefik.enable=true
+      - traefik.http.routers.minio-console.rule=Host(`minio.${DOMAIN}`)
+      - traefik.http.routers.minio-console.entrypoints=websecure
+      - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-console.service=minio-console
+      - traefik.http.services.minio-console.loadbalancer.server.port=9001
+      # MinIO API
+      - traefik.http.routers.minio-api.rule=Host(`minio-api.${DOMAIN}`)
+      - traefik.http.routers.minio-api.entrypoints=websecure
+      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-api.service=minio-api
+      - traefik.http.services.minio-api.loadbalancer.server.port=9000
     deploy:
       replicas: 1
-      labels:
-        # MinIO Console
-        - traefik.enable=true
-        - traefik.http.routers.minio-console.rule=Host(`minio.${DOMAIN}`)
-        - traefik.http.routers.minio-console.entrypoints=websecure
-        - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
-        - traefik.http.routers.minio-console.service=minio-console
-        - traefik.http.services.minio-console.loadbalancer.server.port=9001
-        # MinIO API
-        - traefik.http.routers.minio-api.rule=Host(`minio-api.${DOMAIN}`)
-        - traefik.http.routers.minio-api.entrypoints=websecure
-        - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
-        - traefik.http.routers.minio-api.service=minio-api
-        - traefik.http.services.minio-api.loadbalancer.server.port=9000
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -193,28 +194,28 @@ services:
     networks:
       - backend
       - traefik
+    labels:
+      # Main API
+      - traefik.enable=true
+      - traefik.http.routers.citrine-api.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.citrine-api.entrypoints=websecure
+      - traefik.http.routers.citrine-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.citrine-api.service=citrine-api
+      - traefik.http.services.citrine-api.loadbalancer.server.port=8080
+      # WebSocket endpoint
+      - traefik.http.routers.citrine-ws.rule=Host(`ws.${DOMAIN}`)
+      - traefik.http.routers.citrine-ws.entrypoints=websecure
+      - traefik.http.routers.citrine-ws.tls.certresolver=letsencrypt
+      - traefik.http.routers.citrine-ws.service=citrine-ws
+      - traefik.http.services.citrine-ws.loadbalancer.server.port=8081
+      # OCPP Secure WebSocket
+      - traefik.http.routers.citrine-ocpp-secure.rule=Host(`ocpp-secure.${DOMAIN}`)
+      - traefik.http.routers.citrine-ocpp-secure.entrypoints=websecure
+      - traefik.http.routers.citrine-ocpp-secure.tls.certresolver=letsencrypt
+      - traefik.http.routers.citrine-ocpp-secure.service=citrine-ocpp-secure
+      - traefik.http.services.citrine-ocpp-secure.loadbalancer.server.port=8443
     deploy:
       replicas: 2
-      labels:
-        # Main API
-        - traefik.enable=true
-        - traefik.http.routers.citrine-api.rule=Host(`${DOMAIN}`)
-        - traefik.http.routers.citrine-api.entrypoints=websecure
-        - traefik.http.routers.citrine-api.tls.certresolver=letsencrypt
-        - traefik.http.routers.citrine-api.service=citrine-api
-        - traefik.http.services.citrine-api.loadbalancer.server.port=8080
-        # WebSocket endpoint
-        - traefik.http.routers.citrine-ws.rule=Host(`ws.${DOMAIN}`)
-        - traefik.http.routers.citrine-ws.entrypoints=websecure
-        - traefik.http.routers.citrine-ws.tls.certresolver=letsencrypt
-        - traefik.http.routers.citrine-ws.service=citrine-ws
-        - traefik.http.services.citrine-ws.loadbalancer.server.port=8081
-        # OCPP Secure WebSocket
-        - traefik.http.routers.citrine-ocpp-secure.rule=Host(`ocpp-secure.${DOMAIN}`)
-        - traefik.http.routers.citrine-ocpp-secure.entrypoints=websecure
-        - traefik.http.routers.citrine-ocpp-secure.tls.certresolver=letsencrypt
-        - traefik.http.routers.citrine-ocpp-secure.service=citrine-ocpp-secure
-        - traefik.http.services.citrine-ocpp-secure.loadbalancer.server.port=8443
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -227,7 +228,7 @@ services:
   graphql-engine:
     image: hasura/graphql-engine:v2.40.3.cli-migrations-v3
     environment:
-      HASURA_GRAPHQL_DATABASE_URL: postgres://citrine:${POSTGRES_PASSWORD}@ocpp-db:5432/citrine
+      HASURA_GRAPHQL_DATABASE_URL: postgres://citrine:${POSTGRES_PASSWORD:-citrineos}@ocpp-db:5432/citrine
       HASURA_GRAPHQL_ENABLE_CONSOLE: 'true'
       HASURA_GRAPHQL_DEV_MODE: 'false'  # Set to false for production
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
@@ -237,14 +238,14 @@ services:
     networks:
       - backend
       - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.hasura.rule=Host(`hasura.${DOMAIN}`)
+      - traefik.http.routers.hasura.entrypoints=websecure
+      - traefik.http.routers.hasura.tls.certresolver=letsencrypt
+      - traefik.http.services.hasura.loadbalancer.server.port=8080
     deploy:
       replicas: 2
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.hasura.rule=Host(`hasura.${DOMAIN}`)
-        - traefik.http.routers.hasura.entrypoints=websecure
-        - traefik.http.routers.hasura.tls.certresolver=letsencrypt
-        - traefik.http.services.hasura.loadbalancer.server.port=8080
       restart_policy:
         condition: on-failure
         delay: 5s
