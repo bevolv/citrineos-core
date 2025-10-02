@@ -260,7 +260,6 @@ services:
 # Everest Config
   mqtt-server:
     image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
-    platform: linux/x86_64
     logging:
       driver: none
     networks:
