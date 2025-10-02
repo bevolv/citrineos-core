@@ -1,10 +1,21 @@
+version: '3.8'
+
 networks:
-  citrineos-network:
+  traefik:
+    external: true
+  backend:
     driver: overlay
     attachable: true
-  traefik-network:
-    driver: overlay
-    external: true
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+  traefik_certs:
+    driver: local
 
 services:
   traefik:
@@ -13,18 +24,17 @@ services:
       - --api.dashboard=true
       - --api.insecure=false
 
-      - --providers.docker.endpoint=unix:///var/run/docker.sock
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=traefik-network
-      
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --providers.docker.network=traefik
+
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
 
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
-      
-      - --certificatesResolvers.myresolver.acme.httpChallenge.entryPoint=web
-      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
       - --certificatesresolvers.letsencrypt.acme.email=ishrath.inaam@bevolv.co
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --log.level=INFO
@@ -33,177 +43,211 @@ services:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-letsencrypt:/letsencrypt
+      - traefik_certs:/letsencrypt
     networks:
-      - traefik-network
+      - traefik
     deploy:
       placement:
-        constraints: [node.role == manager]
+        constraints:
+          - node.role == manager
     labels:
-      - "traefik.enable=true"
+      - traefik.enable=true
       # Redirect HTTP -> HTTPS
       - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
       - "traefik.http.routers.http-catchall.entrypoints=web"
       - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      # Dashboard routing
-      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)" 
-      - "traefik.http.routers.traefik-dashboard.service=api@internal"
-      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
-      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
-      - "traefik.http.routers.traefik-dashboard.tls=true"
-      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
-
+      # Dashboard
+      - traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+      # - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
       # Basic auth middleware for dashboard
       - "traefik.http.middlewares.traefik-auth.basicauth.users=ishrath:$$apr1$$h4SDjPzz$$Uxkt5ipUX1lsUgEoQUERz1"
 
-  citrineos:
-    image: ghcr.io/bevolv/citrineos-core/api:${GIT_COMMIT_HASH:-latest}
-    depends_on:
-      - postgres
-      - amqp-broker
-      - redis
-      - directus
+  amqp-broker:
+    image: rabbitmq:3-management
     environment:
-      - APP_ENV=swarm.docker
-      - CITRINEOS_util_messageBroker_amqp_url=amqp://guest:guest@amqp-broker:5672
-      - CITRINEOS_data_sequelize_host=postgres
-      - CITRINEOS_util_cache_redis_host=redis
-      - CITRINEOS_util_fileAccess_directus_host=directus
-      - BOOTSTRAP_CITRINEOS_DATABASE_HOST=`${BOOTSTRAP_CITRINEOS_DATABASE_HOST}`
-      - BOOTSTRAP_CITRINEOS_DATABASE_PORT=`${BOOTSTRAP_CITRINEOS_DATABASE_PORT}`
-      - BOOTSTRAP_CITRINEOS_DATABASE_NAME=`${BOOTSTRAP_CITRINEOS_DATABASE_NAME}`
-      - BOOTSTRAP_CITRINEOS_DATABASE_DIALECT=`${BOOTSTRAP_CITRINEOS_DATABASE_DIALECT}`
-      - BOOTSTRAP_CITRINEOS_DATABASE_USERNAME=`${BOOTSTRAP_CITRINEOS_DATABASE_USERNAME}`
-      - BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD=`${BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD}`
+      RABBITMQ_DEFAULT_USER: '${RABBITMQ_DEFAULT_USER:-guest}'
+      RABBITMQ_DEFAULT_PASS: '${RABBITMQ_DEFAULT_PASS:-guest}'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - citrineos-network
-      - traefik-network
+      - backend
+      - traefik
     deploy:
-      replicas: 2
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: start-first
+      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 5s
         max_attempts: 3
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_port_connectivity
+      interval: 10s
+      timeout: 10s
+      retries: 3
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.citrineos-api.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.citrineos-api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.citrineos-api.loadbalancer.server.port=8080"
-      - "traefik.http.routers.citrineos-ws.rule=Host(`ws.${DOMAIN}`)"
-      - "traefik.http.routers.citrineos-ws.tls.certresolver=letsencrypt"
-      - "traefik.http.services.citrineos-ws.loadbalancer.server.port=8081"
-      - "traefik.http.routers.citrineos-ws-auth.rule=Host(`ws-auth.${DOMAIN}`)"
-      - "traefik.http.routers.citrineos-ws-auth.tls.certresolver=letsencrypt"
-      - "traefik.http.services.citrineos-ws-auth.loadbalancer.server.port=8082"
+      - traefik.enable=true
+      - traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)
+      - traefik.http.routers.rabbitmq.entrypoints=websecure
+      - traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt
+      - traefik.http.services.rabbitmq.loadbalancer.server.port=15672
 
-  postgres:
-    image: postgis/postgis:15-3.3
-    environment:
-      - POSTGRES_DB=citrine
-      - POSTGRES_USER=citrine
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-citrineos}
-      - PGPORT=${BOOTSTRAP_CITRINEOS_DATABASE_PORT:-5433}
+  ocpp-db:
+    image: postgis/postgis:16-3.5
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: citrine
+      POSTGRES_USER: citrine
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-citrineos}'
+      PGPORT: '${BOOTSTRAP_CITRINEOS_DATABASE_PORT:-5432}'
     ports:
-      - "5433:5432"
+      - "5432:5432"
     networks:
-      - citrineos-network
+      - backend
     deploy:
       replicas: 1
-      placement:
-        constraints: [node.role == manager]
       restart_policy:
         condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: 'pg_isready --username=citrine'
+      interval: 5s
+      timeout: 10s
+      retries: 5
 
-  amqp-broker:
-    image: rabbitmq:3.12-management
+  minio:
+    image: minio/minio
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
+      MINIO_ROOT_USER: '${MINIO_ROOT_USER:-minioadmin}'
+      MINIO_ROOT_PASSWORD: '${MINIO_ROOT_PASSWORD:-minioadmin}'
+      MINIO_BROWSER_REDIRECT_URL: https://minio.${DOMAIN}
+      MINIO_SERVER_URL: https://minio-api.${DOMAIN}
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - minio_data:/data
+    command: server /data --console-address ":9001"
     networks:
-      - citrineos-network
-      - traefik-network
+      - backend
+      - traefik
     deploy:
       replicas: 1
-      placement:
-        constraints: [node.role == manager]
+      labels:
+        # MinIO Console
+        - traefik.enable=true
+        - traefik.http.routers.minio-console.rule=Host(`minio.${DOMAIN}`)
+        - traefik.http.routers.minio-console.entrypoints=websecure
+        - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
+        - traefik.http.routers.minio-console.service=minio-console
+        - traefik.http.services.minio-console.loadbalancer.server.port=9001
+        # MinIO API
+        - traefik.http.routers.minio-api.rule=Host(`minio-api.${DOMAIN}`)
+        - traefik.http.routers.minio-api.entrypoints=websecure
+        - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+        - traefik.http.routers.minio-api.service=minio-api
+        - traefik.http.services.minio-api.loadbalancer.server.port=9000
       restart_policy:
         condition: on-failure
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)"
-      - "traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt"
-      - "traefik.http.services.rabbitmq.loadbalancer.server.port=15672"
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
-  redis:
-    image: redis:7-alpine
+  minio-init:
+    image: minio/mc
     networks:
-      - citrineos-network
-    volumes:
-      - redis-data:/data
+      - backend
     deploy:
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: none
+    entrypoint: >
+      /bin/sh -c "
+      set -x
+      echo 'Setting up MinIO alias'
+      mc alias set myminio http://minio:9000 minioadmin minioadmin || echo 'FAILED: alias setup'
+      "
 
-  directus:
-    image: directus/directus:10.8.3
-    depends_on:
-      - directus-db
+  citrine:
+    image: ghcr.io/bevolv/citrineos-core/api:${GIT_COMMIT_HASH:-latest}
     environment:
-      - KEY=${DIRECTUS_KEY}
-      - SECRET=${DIRECTUS_SECRET}
-      - DB_CLIENT=pg
-      - DB_HOST=directus-db
-      - DB_PORT=5432
-      - DB_DATABASE=directus
-      - DB_USER=directus
-      - DB_PASSWORD=${DIRECTUS_DB_PASSWORD:-directus}
-      - ADMIN_EMAIL=admin@citrineos.com
-      - ADMIN_PASSWORD=${DIRECTUS_ADMIN_PASSWORD:-admin}
-      - PUBLIC_URL=https://directus.${DOMAIN}
-    volumes:
-      - directus-uploads:/directus/uploads
+      APP_NAME: 'all'
+      APP_ENV: 'docker'
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      BOOTSTRAP_CITRINEOS_DATABASE_HOST: 'ocpp-db'
+      BOOTSTRAP_CITRINEOS_CONFIG_FILENAME: 'config.json'
+      BOOTSTRAP_CITRINEOS_FILE_ACCESS_TYPE: 'local'
+      BOOTSTRAP_CITRINEOS_FILE_ACCESS_LOCAL_DEFAULT_FILE_PATH: '/data'
     networks:
-      - citrineos-network
-      - traefik-network
+      - backend
+      - traefik
     deploy:
-      replicas: 1
+      replicas: 2
+      labels:
+        # Main API
+        - traefik.enable=true
+        - traefik.http.routers.citrine-api.rule=Host(`${DOMAIN}`)
+        - traefik.http.routers.citrine-api.entrypoints=websecure
+        - traefik.http.routers.citrine-api.tls.certresolver=letsencrypt
+        - traefik.http.routers.citrine-api.service=citrine-api
+        - traefik.http.services.citrine-api.loadbalancer.server.port=8080
+        # WebSocket endpoint
+        - traefik.http.routers.citrine-ws.rule=Host(`ws.${DOMAIN}`)
+        - traefik.http.routers.citrine-ws.entrypoints=websecure
+        - traefik.http.routers.citrine-ws.tls.certresolver=letsencrypt
+        - traefik.http.routers.citrine-ws.service=citrine-ws
+        - traefik.http.services.citrine-ws.loadbalancer.server.port=8081
+        # OCPP Secure WebSocket
+        - traefik.http.routers.citrine-ocpp-secure.rule=Host(`ocpp-secure.${DOMAIN}`)
+        - traefik.http.routers.citrine-ocpp-secure.entrypoints=websecure
+        - traefik.http.routers.citrine-ocpp-secure.tls.certresolver=letsencrypt
+        - traefik.http.routers.citrine-ocpp-secure.service=citrine-ocpp-secure
+        - traefik.http.services.citrine-ocpp-secure.loadbalancer.server.port=8443
       restart_policy:
         condition: on-failure
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.directus.rule=Host(`directus.${DOMAIN}`)"
-      - "traefik.http.routers.directus.tls.certresolver=letsencrypt"
-      - "traefik.http.services.directus.loadbalancer.server.port=8055"
+        delay: 10s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
 
-  directus-db:
-    image: postgres:15
+  graphql-engine:
+    image: hasura/graphql-engine:v2.40.3.cli-migrations-v3
     environment:
-      - POSTGRES_DB=directus
-      - POSTGRES_USER=directus
-      - POSTGRES_PASSWORD=${DIRECTUS_DB_PASSWORD:-directus}
-    volumes:
-      - directus-database:/var/lib/postgresql/data
+      HASURA_GRAPHQL_DATABASE_URL: postgres://citrine:citrine@ocpp-db:5432/citrine
+      HASURA_GRAPHQL_ENABLE_CONSOLE: 'true'
+      HASURA_GRAPHQL_DEV_MODE: 'false'  # Set to false for production
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: 'false'
+      HASURA_GRAPHQL_ADMIN_SECRET: '${HASURA_GRAPHQL_ADMIN_SECRET:-supersecret}'  # Set a strong secret
+      HASURA_GRAPHQL_METADATA_DEFAULTS: '{"backend_configs":{"dataconnector":{"athena":{"uri":"http://data-connector-agent:8081/api/v1/athena"},"mariadb":{"uri":"http://data-connector-agent:8081/api/v1/mariadb"}}}}'
     networks:
-      - citrineos-network
+      - backend
+      - traefik
     deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-
-volumes:
-  traefik-letsencrypt:
-  postgres-data:
-  rabbitmq-data:
-  redis-data:
-  directus-uploads:
-  directus-database:
+      replicas: 2
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.hasura.rule=Host(`hasura.${DOMAIN}`)
+        - traefik.http.routers.hasura.entrypoints=websecure
+        - traefik.http.routers.hasura.tls.certresolver=letsencrypt
+        - traefik.http.services.hasura.loadbalancer.server.port=8080
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/healthz']
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
