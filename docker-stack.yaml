@@ -2,6 +2,7 @@ version: '3.8'
 
 networks:
   traefik:
+    driver: overlay
     external: true
   backend:
     driver: overlay
