@@ -83,6 +83,8 @@ import {
 import { AdminApi, MessageRouterImpl, WebhookDispatcher } from '@citrineos/ocpprouter';
 import cors from '@fastify/cors';
 import ApiAuthPlugin from '@citrineos/util/dist/authorization/ApiAuthPlugin';
+import { ApiKeyAuthProvider } from '@citrineos/util';
+import { GraphQLAuthWebhook } from './apis/GraphQLAuthWebhook';
 
 export class CitrineOSServer {
   /**
@@ -395,17 +397,40 @@ export class CitrineOSServer {
   }
 
   private registerApiAuth() {
-    const authProvider = this.initApiAuthProvider();
-    this._server.register(ApiAuthPlugin, {
-      provider: authProvider,
-      options: {
-        excludedRoutes: [
-          '/health', // Health check endpoint
-          '/docs', // API documentation
-        ],
-        debug: this._config.logLevel <= 2, // Enable debug logs in dev mode
-      },
-    });
+    if (this._config.util.authProvider.apiKey) {
+      const apiKeyProvider = new ApiKeyAuthProvider(
+        this._config.util.authProvider.apiKey,
+        this._logger,
+      );
+
+      this._server.register(ApiAuthPlugin, {
+        provider: apiKeyProvider,
+        options: {
+          excludedRoutes: [
+            '/health', // Health check endpoint
+            '/docs', // API documentation
+            '/webhook/graphql-auth', // GraphQL webhook endpoint
+          ],
+          debug: this._config.logLevel <= 2, // Enable debug logs in dev mode
+        },
+        logger: this._logger,
+      });
+
+      // Register GraphQL authentication webhook
+      new GraphQLAuthWebhook(this._server, apiKeyProvider, this._logger);
+    } else {
+      const authProvider = this.initApiAuthProvider();
+      this._server.register(ApiAuthPlugin, {
+        provider: authProvider,
+        options: {
+          excludedRoutes: [
+            '/health', // Health check endpoint
+            '/docs', // API documentation
+          ],
+          debug: this._config.logLevel <= 2, // Enable debug logs in dev mode
+        },
+      });
+    }
   }
 
   private initNetworkConnection() {

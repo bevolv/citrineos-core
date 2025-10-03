@@ -84,6 +84,9 @@ services:
       # Add AWS region (required by the SDK)
       AWS_REGION: us-east-1
       # Bootstrap Configuration
+      # Citrine API Authentication
+      CITRINEOS_API_KEY: '${CITRINEOS_API_KEY:-ctos_api_4f7e8d9c2b1a6f5e4d3c8b7a9f2e1d6c5b4a3f8e7d9c2b1a}'
+      CITRINEOS_SECRET_KEY: '${CITRINEOS_SECRET_KEY:-dev_key_9b8e7d6c5a4f3e2d1c8b7a9f6e5d4c3b2a1f8e7d9c6b5a4f3e2d1c8b7a9f6e5d4c3b2a1f}'
       BOOTSTRAP_CITRINEOS_DATABASE_HOST: 'ocpp-db'
       BOOTSTRAP_CITRINEOS_CONFIG_FILENAME: 'config.json'
       BOOTSTRAP_CITRINEOS_FILE_FILE_ACCESS_TYPE: 'directus'
@@ -163,7 +166,9 @@ services:
       ## uncomment next line to run console offline (i.e load console assets from server instead of CDN)
       # HASURA_GRAPHQL_CONSOLE_ASSETS_DIR: /srv/console-assets
       ## uncomment next line to set an admin secret
-      # HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
+      HASURA_GRAPHQL_AUTH_HOOK: '${HASURA_GRAPHQL_AUTH_HOOK:-http://citrine:8080/webhook/graphql-auth}'
+      ## uncomment next line to set an admin secret - warning, without configuration this will cause upstream services to fail
+      HASURA_GRAPHQL_ADMIN_SECRET: '${HASURA_GRAPHQL_ADMIN_SECRET:-CitrineOS!}'
       HASURA_GRAPHQL_METADATA_DEFAULTS: '{"backend_configs":{"dataconnector":{"athena":{"uri":"http://data-connector-agent:8081/api/v1/athena"},"mariadb":{"uri":"http://data-connector-agent:8081/api/v1/mariadb"},"mysql8":{"uri":"http://data-connector-agent:8081/api/v1/mysql"},"oracle":{"uri":"http://data-connector-agent:8081/api/v1/oracle"},"snowflake":{"uri":"http://data-connector-agent:8081/api/v1/snowflake"}}}}'
     depends_on:
       data-connector-agent:

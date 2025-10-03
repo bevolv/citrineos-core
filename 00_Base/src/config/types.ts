@@ -187,9 +187,15 @@ export const systemConfigInputSchema = z.object({
             rateLimit: z.boolean().default(false).optional(),
           })
           .optional(),
+        apiKey: z
+          .object({
+            apiKey: z.string(),
+            secretKey: z.string(),
+          })
+          .optional(),
         localByPass: z.boolean().default(false).optional(),
       })
-      .refine((obj) => obj.oidc || obj.localByPass, {
+      .refine((obj) => obj.oidc || obj.apiKey || obj.localByPass, {
         message: 'An auth provider implementation must be set',
       }),
     swagger: z
@@ -462,9 +468,15 @@ export const systemConfigSchema = z
               rateLimit: z.boolean(),
             })
             .optional(),
+          apiKey: z
+            .object({
+              apiKey: z.string(),
+              secretKey: z.string(),
+            })
+            .optional(),
           localByPass: z.boolean().default(false).optional(),
         })
-        .refine((obj) => obj.oidc || obj.localByPass, {
+        .refine((obj) => obj.oidc || obj.apiKey || obj.localByPass, {
           message: 'An auth provider implementation must be set',
         }),
       swagger: z
