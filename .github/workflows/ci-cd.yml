@@ -54,6 +54,7 @@ jobs:
             ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
           build-args: |
             DOMAIN=citrineos.vertix.digital
+            
 
   build-and-push-everest-image:
     runs-on: ubuntu-latest
@@ -131,6 +132,10 @@ jobs:
         echo "EVEREST_IMAGE_TAG=0.0.23" >> ./envfile
         echo "EVEREST_TARGET_URL=ws://host.docker.internal:8081/cp001" >> ./envfile
         echo "OCPP_VERSION=two" >> ./envfile
+        echo "CITRINEOS_API_KEY=${{ secrets.CITRINEOS_API_KEY }}" >> ./envfile
+        echo "CITRINEOS_SECRET_KEY=${{ secrets.CITRINEOS_SECRET_KEY }}" >> ./envfile
+        echo "HASURA_GRAPHQL_AUTH_HOOK=${{ vars.HASURA_GRAPHQL_AUTH_HOOK }}" >> ./envfile
+        echo "HASURA_GRAPHQL_ADMIN_SECRET=${{ secrets.HASURA_GRAPHQL_ADMIN_SECRET }}" >> ./envfile
 
     - name: Docker Stack Deploy
       uses: cssnr/stack-deploy-action@v1
