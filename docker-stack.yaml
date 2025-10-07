@@ -235,7 +235,7 @@ services:
       HASURA_GRAPHQL_DEV_MODE: 'false'  # Set to false for production
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
       HASURA_GRAPHQL_ENABLE_TELEMETRY: 'false'
-      HASURA_GRAPHQL_AUTH_HOOK: '${HASURA_GRAPHQL_AUTH_HOOK:-https://${DOMAIN}/webhook/graphql-auth}'
+      HASURA_GRAPHQL_AUTH_HOOK: '${HASURA_GRAPHQL_AUTH_HOOK}'
       HASURA_GRAPHQL_ADMIN_SECRET: '${HASURA_GRAPHQL_ADMIN_SECRET:-supersecret}'  # Set a strong secret
       HASURA_GRAPHQL_METADATA_DEFAULTS: '{"backend_configs":{"dataconnector":{"athena":{"uri":"http://data-connector-agent:8081/api/v1/athena"},"mariadb":{"uri":"http://data-connector-agent:8081/api/v1/mariadb"}}}}'
     networks:
