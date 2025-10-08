@@ -6,7 +6,6 @@ networks:
     external: true
   backend:
     driver: overlay
-    enable_ipv6: true
     ipam:
       driver: default
       config:
