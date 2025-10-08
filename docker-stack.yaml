@@ -8,6 +8,7 @@ networks:
     driver: overlay
     attachable: true
     external: true
+    name: citrine-stack_backend
   bridge:
     driver: bridge
     name: bridge
