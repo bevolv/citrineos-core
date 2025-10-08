@@ -6,6 +6,15 @@ networks:
     external: true
   backend:
     driver: overlay
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.0.2.0/24
+        gateway: 10.0.2.1
+      
+      - subnet: 2001:db8:1::/64
+        gateway: 2001:db8:1::1
     attachable: true
 
 volumes:
