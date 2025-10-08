@@ -10,7 +10,7 @@ networks:
       driver: default
       config:
       - subnet: 10.0.2.0/24
-      - subnet: 2001:db8:1::/64
+      - subnet: fd00::/64
     attachable: true
 
 volumes:
