@@ -10,7 +10,7 @@ networks:
     external: true
     name: citrine-stack_backend
   bridge:
-    driver: bridge
+    external: true
     name: bridge
 
 volumes:
