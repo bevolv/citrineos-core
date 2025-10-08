@@ -6,12 +6,7 @@ networks:
     external: true
   backend:
     driver: overlay
-    ipam:
-      driver: default
-      config:
-      - subnet: "10.0.2.0/24"
-      - subnet: "2001:db8:2::/64"
-    attachable: true
+    external: true
 
 volumes:
   rabbitmq_data:
