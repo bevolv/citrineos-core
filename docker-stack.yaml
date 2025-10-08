@@ -5,8 +5,8 @@ networks:
     driver: overlay
     external: true
   backend:
-    driver: overlay
     external: true
+    name: citrine-stack_backend
 
 volumes:
   rabbitmq_data:
@@ -290,6 +290,7 @@ services:
       - OCPP_VERSION=${OCPP_VERSION}
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.default.disable_ipv6=0
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
