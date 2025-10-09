@@ -200,24 +200,34 @@ export abstract class AbstractModule implements IModule {
 
   /**
    * Waits for connection to be ready to prevent race conditions.
+   * Uses exponential backoff for better reliability in production environments.
    *
    * @param {string} identifier - The connection identifier.
    * @param {number} maxRetries - Maximum number of retry attempts.
-   * @param {number} delay - Delay between retries in milliseconds.
+   * @param {number} baseDelay - Base delay in milliseconds for exponential backoff.
    * @return {Promise<boolean>} True if connection is ready, false otherwise.
    */
   private async _waitForConnection(
     identifier: string,
-    maxRetries: number = 5,
-    delay: number = 100,
+    maxRetries: number = 8,
+    baseDelay: number = 100,
   ): Promise<boolean> {
     for (let i = 0; i < maxRetries; i++) {
       const connection = await this._cache.get<string>(identifier, CacheNamespace.Connections);
       if (connection) {
+        this._logger.debug(`Connection ready for ${identifier} after ${i + 1} attempts`);
         return true;
       }
+
+      // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms, 3200ms, 6400ms, 12800ms
+      const delay = Math.min(baseDelay * Math.pow(2, i), 5000); // Cap at 5 seconds
+      this._logger.debug(
+        `Connection not ready for ${identifier}, retrying in ${delay}ms (attempt ${i + 1}/${maxRetries})`,
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
+
+    this._logger.warn(`Connection not ready for ${identifier} after ${maxRetries} attempts`);
     return false;
   }
 
@@ -267,10 +277,10 @@ export abstract class AbstractModule implements IModule {
     // Add connection readiness check to prevent race conditions
     const isConnectionReady = await this._waitForConnection(identifier);
     if (!isConnectionReady) {
-      this._logger.warn('Connection not ready for identifier: ', identifier);
+      this._logger.warn(`Connection not ready for identifier: ${identifier} after retry attempts`);
       return Promise.resolve({
         success: false,
-        payload: 'Connection not ready for identifier: ' + identifier,
+        payload: `Connection not ready for identifier: ${identifier}. Please ensure the charging station is connected and try again.`,
       });
     }
 
