@@ -40,6 +40,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { ILogObj, Logger } from 'tslog';
 import { ILocationRepository, ISubscriptionRepository, sequelize } from '@citrineos/data';
+import { OCPPMessage } from '@citrineos/data';
 import { WebhookDispatcher } from './webhook.dispatcher';
 import {
   createIdentifier,
@@ -106,47 +107,61 @@ export class MessageRouterImpl extends AbstractMessageRouter implements IMessage
     this._handler.initConnection();
   }
 
-  // TODO: Below method should lock these tables so that a rapid connect-disconnect cannot result in race condition.
+  // Add connection lock to prevent race conditions during rapid connect-disconnect
   async registerConnection(
     tenantId: number,
     stationId: string,
     protocol: OCPPVersion,
   ): Promise<boolean> {
-    const dispatcherRegistration = this._webhookDispatcher.register(tenantId, stationId);
-
     const connectionIdentifier = createIdentifier(tenantId, stationId);
-    const requestSubscription = this._handler.subscribe(connectionIdentifier, undefined, {
-      tenantId: tenantId.toString(),
-      stationId,
-      state: MessageState.Request.toString(),
-      origin: MessageOrigin.ChargingStationManagementSystem.toString(),
-    });
 
-    const responseSubscription = this._handler.subscribe(connectionIdentifier, undefined, {
-      tenantId: tenantId.toString(),
-      stationId,
-      state: MessageState.Response.toString(),
-      origin: MessageOrigin.ChargingStationManagementSystem.toString(),
-    });
+    // Add connection lock to prevent race conditions
+    const lockKey = `connection_lock_${connectionIdentifier}`;
+    const lockAcquired = await this._cache.setIfNotExist(lockKey, 'locked', undefined, 10); // 10 second lock
 
-    const onlineCharger = this._locationRepository.setChargingStationIsOnlineAndOCPPVersion(
-      tenantId,
-      stationId,
-      true,
-      protocol,
-    );
+    if (!lockAcquired) {
+      this._logger.warn(`Connection registration already in progress for ${connectionIdentifier}`);
+      return false;
+    }
 
-    return Promise.all([
-      dispatcherRegistration,
-      requestSubscription,
-      responseSubscription,
-      onlineCharger,
-    ])
-      .then((resolvedArray) => resolvedArray[1] && resolvedArray[2])
-      .catch((error) => {
-        this._logger.error(`Error registering connection for ${connectionIdentifier}: ${error}`);
-        return false;
+    try {
+      const dispatcherRegistration = this._webhookDispatcher.register(tenantId, stationId);
+      const requestSubscription = this._handler.subscribe(connectionIdentifier, undefined, {
+        tenantId: tenantId.toString(),
+        stationId,
+        state: MessageState.Request.toString(),
+        origin: MessageOrigin.ChargingStationManagementSystem.toString(),
       });
+
+      const responseSubscription = this._handler.subscribe(connectionIdentifier, undefined, {
+        tenantId: tenantId.toString(),
+        stationId,
+        state: MessageState.Response.toString(),
+        origin: MessageOrigin.ChargingStationManagementSystem.toString(),
+      });
+
+      const onlineCharger = this._locationRepository.setChargingStationIsOnlineAndOCPPVersion(
+        tenantId,
+        stationId,
+        true,
+        protocol,
+      );
+
+      const result = await Promise.all([
+        dispatcherRegistration,
+        requestSubscription,
+        responseSubscription,
+        onlineCharger,
+      ]);
+
+      return result[1] && result[2];
+    } catch (error) {
+      this._logger.error(`Error registering connection for ${connectionIdentifier}: ${error}`);
+      return false;
+    } finally {
+      // Release lock
+      await this._cache.remove(lockKey);
+    }
   }
 
   async deregisterConnection(tenantId: number, stationId: string): Promise<boolean> {
@@ -324,14 +339,45 @@ export class MessageRouterImpl extends AbstractMessageRouter implements IMessage
       CacheNamespace.Transactions,
     );
     if (!cachedActionMessageId) {
-      this._logger.error(
-        'Failed to send callResult due to missing message id',
+      this._logger.warn(
+        'Missing message correlation for callResult, attempting to recover',
         identifier,
-        message,
+        correlationId,
+        action,
       );
-      return { success: false };
+
+      // Try to recover from database if cache is missing
+      try {
+        const dbMessage = await OCPPMessage.findOne({
+          where: {
+            tenantId: tenantId,
+            stationId: stationId,
+            correlationId: correlationId,
+            action: action,
+          },
+        });
+
+        if (dbMessage) {
+          this._logger.info(
+            'Recovered message correlation from database',
+            identifier,
+            correlationId,
+          );
+          // Continue with the response even without cache
+        } else {
+          this._logger.error(
+            'Failed to send callResult due to missing message id and no database recovery',
+            identifier,
+            message,
+          );
+          return { success: false };
+        }
+      } catch (error) {
+        this._logger.error('Database recovery failed for message correlation', error);
+        return { success: false };
+      }
     }
-    let [cachedAction, cachedMessageId] = cachedActionMessageId?.split(/:(.*)/); // Returns all characters after first ':' in case ':' is used in messageId
+    let [cachedAction, cachedMessageId] = cachedActionMessageId?.split(/:(.*)/) || []; // Returns all characters after first ':' in case ':' is used in messageId
     if (cachedAction === action && cachedMessageId === correlationId) {
       message = this.removeNulls(message);
       const rawMessage = JSON.stringify(message);
