@@ -314,30 +314,36 @@ export class WebsocketNetworkConnection {
         const port = req.socket.remotePort as number;
         this._logger.info('Client websocket connected', identifier, ip, port, ws.protocol);
 
-        // Register client
+        // Register client - ATOMIC OPERATION: Do all registrations first, then resume
         const websocketConnection: IWebsocketConnection = {
           id: websocketServerConfig.id,
           protocol: ws.protocol,
         };
-        let registered = await this._cache.set(
+
+        // Cache registration
+        const cacheResult = await this._cache.set(
           identifier,
           JSON.stringify(websocketConnection),
           CacheNamespace.Connections,
         );
-        registered =
-          registered && (await this._router.registerConnection(tenantId, stationId, ws.protocol));
-        if (!registered) {
+
+        // Router registration
+        const routerResult = await this._router.registerConnection(
+          tenantId,
+          stationId,
+          ws.protocol,
+        );
+
+        if (!cacheResult || !routerResult) {
           this._logger.fatal('Failed to register websocket client', identifier);
           throw new Error('Failed to register websocket client');
         }
 
-        this._logger.info('Successfully connected new charging station.', identifier);
-
-        // Register all websocket events
+        // Only register events and resume after everything is registered
         this._registerWebsocketEvents(identifier, ws, pingInterval);
-
-        // Resume the WebSocket event emitter after events have been subscribed to
         ws.resume();
+
+        this._logger.info('Successfully connected new charging station.', identifier);
       } catch (error) {
         this._logger.fatal('Failed to subscribe to message broker for ', identifier);
         ws.close(1011, 'Failed to subscribe to message broker for ' + identifier);

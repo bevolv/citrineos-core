@@ -199,6 +199,29 @@ export abstract class AbstractModule implements IModule {
   }
 
   /**
+   * Waits for connection to be ready to prevent race conditions.
+   *
+   * @param {string} identifier - The connection identifier.
+   * @param {number} maxRetries - Maximum number of retry attempts.
+   * @param {number} delay - Delay between retries in milliseconds.
+   * @return {Promise<boolean>} True if connection is ready, false otherwise.
+   */
+  private async _waitForConnection(
+    identifier: string,
+    maxRetries: number = 5,
+    delay: number = 100,
+  ): Promise<boolean> {
+    for (let i = 0; i < maxRetries; i++) {
+      const connection = await this._cache.get<string>(identifier, CacheNamespace.Connections);
+      if (connection) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    return false;
+  }
+
+  /**
    * Default implementation
    */
 
@@ -240,6 +263,17 @@ export abstract class AbstractModule implements IModule {
         .then()
         .catch((error) => this._logger.error('Failed setting cache: ', error));
     }
+
+    // Add connection readiness check to prevent race conditions
+    const isConnectionReady = await this._waitForConnection(identifier);
+    if (!isConnectionReady) {
+      this._logger.warn('Connection not ready for identifier: ', identifier);
+      return Promise.resolve({
+        success: false,
+        payload: 'Connection not ready for identifier: ' + identifier,
+      });
+    }
+
     // TODO: Future - Compound key with tenantId
     return this._cache.get<string>(identifier, CacheNamespace.Connections).then((connection) => {
       if (connection) {
