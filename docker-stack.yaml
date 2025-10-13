@@ -73,6 +73,31 @@ services:
       # Basic auth middleware for dashboard
       - "traefik.http.middlewares.traefik-auth.basicauth.users=ishrath:$$apr1$$h4SDjPzz$$Uxkt5ipUX1lsUgEoQUERz1"
 
+  dozzle:
+    image: amir20/dozzle:latest
+    environment:
+      - DOZZLE_MODE=swarm
+      - DOZZLE_ENABLE_ACTIONS=true
+      - DOZZLE_ENABLE_SHELL=true
+      - DOZZLE_HOSTNAME=dozzle-citrine.vertix.digital
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik
+      - backend
+    deploy:
+      mode: global
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle-citrine.vertix.digital`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls=true"
+      - "traefik.http.routers.dozzle.tls.certresolver=myresolver"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+      - "traefik.http.routers.dozzle.service=dozzle"
+      - "traefik.http.routers.dozzle.middlewares=dozzle-auth"
+      - "traefik.http.middlewares.dozzle-auth.basicauth.users=ishrath:$$apr1$$h4SDjPzz$$Uxkt5ipUX1lsUgEoQUERz1"
+
   amqp-broker:
     image: rabbitmq:3-management
     environment:
