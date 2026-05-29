@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  DOMAIN: citrineos.vertix.digital
+  DOMAIN: citrine.${{ vars.DOMAIN || 'bevolv.co' }}
 
 jobs:
   build-and-push-citrineos-image:
@@ -52,7 +52,7 @@ jobs:
             ghcr.io/bevolv/citrineos-core/api:latest
             ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
           build-args: |
-            DOMAIN=citrineos.vertix.digital
+            DOMAIN=${{ env.DOMAIN }}
             
 
   build-and-push-everest-image:
@@ -94,7 +94,7 @@ jobs:
             ghcr.io/bevolv/citrineos-core/everest:latest
             ghcr.io/bevolv/citrineos-core/everest:${{ github.sha }}
           build-args: |
-            DOMAIN=citrineos.vertix.digital
+            DOMAIN=${{ env.DOMAIN }}
             EVEREST_IMAGE_TAG=0.0.23
             EVEREST_TARGET_URL=wss://ws.${DOMAIN}/cp001
             OCPP_VERSION=two
@@ -111,7 +111,7 @@ jobs:
     - name: Pull latest image
       uses: appleboy/ssh-action@master
       with:
-        host: citrineos.vertix.digital
+        host: ${{ env.DOMAIN }}
         username: deploy
         key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         script: |
@@ -121,7 +121,7 @@ jobs:
     - name: create env file
       run: |
         echo "GIT_COMMIT_HASH=${{ github.sha }}" >> ./envfile
-        echo "DOMAIN=citrineos.vertix.digital" >> ./envfile
+        echo "DOMAIN=${{ env.DOMAIN }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_HOST=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_HOST }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_PORT=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_PORT }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_NAME=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_NAME }}" >> ./envfile
@@ -141,7 +141,7 @@ jobs:
       with:
         name: citrine-stack
         file: docker-stack.yaml
-        host: citrineos.vertix.digital
+        host: ${{ env.DOMAIN }}
         user: deploy
         ssh_key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         env_file: ./envfile

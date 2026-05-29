@@ -64,7 +64,7 @@ services:
       - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       # Dashboard
-      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)
+      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.traefik-dashboard.service=api@internal
       - "traefik.http.routers.traefik.middlewares=traefik-auth"
       - traefik.http.routers.traefik-dashboard.entrypoints=websecure
@@ -89,7 +89,7 @@ services:
       mode: global
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dozzle.rule=Host(`dozzle-citrine.vertix.digital`)"
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle.citrine.${DOMAIN:-bevolv.co}`)"
       - "traefik.http.routers.dozzle.entrypoints=websecure"
       - "traefik.http.routers.dozzle.tls=true"
       - "traefik.http.routers.dozzle.tls.certresolver=myresolver"
@@ -121,7 +121,7 @@ services:
       retries: 3
     labels:
       - traefik.enable=true
-      - traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.${DOMAIN}`)
+      - traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.rabbitmq.entrypoints=websecure
       - traefik.http.routers.rabbitmq.tls.certresolver=letsencrypt
       - traefik.http.services.rabbitmq.loadbalancer.server.port=15672
@@ -156,8 +156,8 @@ services:
     environment:
       MINIO_ROOT_USER: '${MINIO_ROOT_USER:-minioadmin}'
       MINIO_ROOT_PASSWORD: '${MINIO_ROOT_PASSWORD:-minioadmin}'
-      MINIO_BROWSER_REDIRECT_URL: https://minio.${DOMAIN}
-      MINIO_SERVER_URL: https://minio-api.${DOMAIN}
+      MINIO_BROWSER_REDIRECT_URL: https://minio.citrine.${DOMAIN:-bevolv.co}
+      MINIO_SERVER_URL: https://minio-api.citrine.${DOMAIN:-bevolv.co}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -167,13 +167,13 @@ services:
     labels:
       # MinIO Console
       - traefik.enable=true
-      - traefik.http.routers.minio-console.rule=Host(`minio.${DOMAIN}`)
+      - traefik.http.routers.minio-console.rule=Host(`minio.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.minio-console.entrypoints=websecure
       - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
       - traefik.http.routers.minio-console.service=minio-console
       - traefik.http.services.minio-console.loadbalancer.server.port=9001
       # MinIO API
-      - traefik.http.routers.minio-api.rule=Host(`minio-api.${DOMAIN}`)
+      - traefik.http.routers.minio-api.rule=Host(`minio-api.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.minio-api.entrypoints=websecure
       - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
       - traefik.http.routers.minio-api.service=minio-api
@@ -229,19 +229,19 @@ services:
     labels:
       # Main API
       - traefik.enable=true
-      - traefik.http.routers.citrine-api.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.citrine-api.rule=Host(`citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.citrine-api.entrypoints=websecure
       - traefik.http.routers.citrine-api.tls.certresolver=letsencrypt
       - traefik.http.routers.citrine-api.service=citrine-api
       - traefik.http.services.citrine-api.loadbalancer.server.port=8080
       # WebSocket endpoint
-      - traefik.http.routers.citrine-ws.rule=Host(`ws.${DOMAIN}`)
+      - traefik.http.routers.citrine-ws.rule=Host(`ws.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.citrine-ws.entrypoints=websecure
       - traefik.http.routers.citrine-ws.tls.certresolver=letsencrypt
       - traefik.http.routers.citrine-ws.service=citrine-ws
       - traefik.http.services.citrine-ws.loadbalancer.server.port=8081
       # OCPP Secure WebSocket
-      - traefik.http.routers.citrine-ocpp-secure.rule=Host(`ocpp-secure.${DOMAIN}`)
+      - traefik.http.routers.citrine-ocpp-secure.rule=Host(`ocpp-secure.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.citrine-ocpp-secure.entrypoints=websecure
       - traefik.http.routers.citrine-ocpp-secure.tls.certresolver=letsencrypt
       - traefik.http.routers.citrine-ocpp-secure.service=citrine-ocpp-secure
@@ -273,7 +273,7 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.http.routers.hasura.rule=Host(`hasura.${DOMAIN}`)
+      - traefik.http.routers.hasura.rule=Host(`hasura.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.hasura.entrypoints=websecure
       - traefik.http.routers.hasura.tls.certresolver=letsencrypt
       - traefik.http.services.hasura.loadbalancer.server.port=8080
@@ -330,7 +330,7 @@ services:
       - bridge
     labels:
       - traefik.enable=true
-      - traefik.http.routers.everest-manager.rule=Host(`everest.${DOMAIN}`)
+      - traefik.http.routers.everest-manager.rule=Host(`everest.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.everest-manager.entrypoints=websecure
       - traefik.http.routers.everest-manager.tls.certresolver=letsencrypt
       - traefik.http.services.everest-manager.loadbalancer.server.port=8888
@@ -350,7 +350,7 @@ services:
       - bridge
     labels:
       - traefik.enable=true
-      - traefik.http.routers.nodered.rule=Host(`nodered.${DOMAIN}`)
+      - traefik.http.routers.nodered.rule=Host(`nodered.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.nodered.entrypoints=websecure
       - traefik.http.routers.nodered.tls.certresolver=letsencrypt
       - traefik.http.services.nodered.loadbalancer.server.port=1880
