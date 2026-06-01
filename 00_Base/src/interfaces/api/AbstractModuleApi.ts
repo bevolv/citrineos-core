@@ -30,6 +30,7 @@ import { IModule } from '../modules';
 import { IMessageQuerystringSchema } from './MessageQuerystring';
 import { IModuleApi } from './ModuleApi';
 import { AuthorizationSecurity } from './AuthorizationSecurity';
+import { ZodTypeAny } from 'zod';
 import zodToJsonSchema from 'zod-to-json-schema';
 
 /**
@@ -395,7 +396,7 @@ export abstract class AbstractModuleApi<T extends IModule> implements IModuleApi
       HttpMethod.Get,
     );
 
-    const systemConfigJsonSchema: any = zodToJsonSchema(systemConfigSchema, {
+    const systemConfigJsonSchema: any = zodToJsonSchema(systemConfigSchema as ZodTypeAny, {
       name: 'SystemConfigSchema',
       $refStrategy: 'none',
     });
