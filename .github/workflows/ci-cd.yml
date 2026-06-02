@@ -121,7 +121,7 @@ jobs:
     - name: create env file
       run: |
         echo "GIT_COMMIT_HASH=${{ github.sha }}" >> ./envfile
-        echo "DOMAIN=${{ env.DOMAIN }}" >> ./envfile
+        echo "DOMAIN=${{ vars.DOMAIN }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_HOST=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_HOST }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_PORT=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_PORT }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_NAME=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_NAME }}" >> ./envfile
