@@ -246,6 +246,12 @@ services:
       - traefik.http.routers.citrine-ocpp-secure.tls.certresolver=letsencrypt
       - traefik.http.routers.citrine-ocpp-secure.service=citrine-ocpp-secure
       - traefik.http.services.citrine-ocpp-secure.loadbalancer.server.port=8443
+      # OCPP 1.6J WebSocket
+      - traefik.http.routers.citrine-ws-16.rule=Host(`ws16.citrine.${DOMAIN:-bevolv.co}`)
+      - traefik.http.routers.citrine-ws-16.entrypoints=websecure
+      - traefik.http.routers.citrine-ws-16.tls.certresolver=letsencrypt
+      - traefik.http.routers.citrine-ws-16.service=citrine-ws-16
+      - traefik.http.services.citrine-ws-16.loadbalancer.server.port=8092
     deploy:
       replicas: 2
       restart_policy:
