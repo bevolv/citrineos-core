@@ -64,7 +64,7 @@ services:
       - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       # Dashboard
-      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN:-bevolv.co}`)
+      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.traefik-dashboard.service=api@internal
       - "traefik.http.routers.traefik.middlewares=traefik-auth"
       - traefik.http.routers.traefik-dashboard.entrypoints=websecure
@@ -79,7 +79,7 @@ services:
       - DOZZLE_MODE=swarm
       - DOZZLE_ENABLE_ACTIONS=true
       - DOZZLE_ENABLE_SHELL=true
-      - DOZZLE_HOSTNAME=dozzle-citrine.vertix.digital
+      - DOZZLE_HOSTNAME=dozzle.citrine.${DOMAIN:-bevolv.co}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -92,7 +92,7 @@ services:
       - "traefik.http.routers.dozzle.rule=Host(`dozzle.citrine.${DOMAIN:-bevolv.co}`)"
       - "traefik.http.routers.dozzle.entrypoints=websecure"
       - "traefik.http.routers.dozzle.tls=true"
-      - "traefik.http.routers.dozzle.tls.certresolver=myresolver"
+      - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
       - "traefik.http.routers.dozzle.service=dozzle"
       - "traefik.http.routers.dozzle.middlewares=dozzle-auth"

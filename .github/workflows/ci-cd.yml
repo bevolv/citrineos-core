@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 env:
-  DOMAIN: citrine.${{ vars.DOMAIN || 'bevolv.co' }}
+  DOMAIN: ${{ vars.DOMAIN || 'bevolv.co' }}
+  DEPLOY_HOST: citrine.${{ vars.DOMAIN || 'bevolv.co' }}
 
 jobs:
   build-and-push-citrineos-image:
@@ -111,7 +112,7 @@ jobs:
     - name: Pull latest image
       uses: appleboy/ssh-action@master
       with:
-        host: ${{ env.DOMAIN }}
+        host: ${{ env.DEPLOY_HOST }}
         username: deploy
         key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         script: |
@@ -141,7 +142,7 @@ jobs:
       with:
         name: citrine-stack
         file: docker-stack.yaml
-        host: ${{ env.DOMAIN }}
+        host: ${{ env.DEPLOY_HOST }}
         user: deploy
         ssh_key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         env_file: ./envfile
