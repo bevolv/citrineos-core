@@ -66,7 +66,7 @@ services:
       # Dashboard
       - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.citrine.${DOMAIN:-bevolv.co}`)
       - traefik.http.routers.traefik-dashboard.service=api@internal
-      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
       - traefik.http.routers.traefik-dashboard.entrypoints=websecure
       - traefik.http.routers.traefik-dashboard.tls=true
       - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
