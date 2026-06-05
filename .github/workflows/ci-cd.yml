@@ -116,6 +116,7 @@ jobs:
         username: deploy
         key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         script: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker pull ghcr.io/bevolv/citrineos-core/api:${{ github.sha }}
           docker pull ghcr.io/bevolv/citrineos-core/everest:${{ github.sha }}
 
