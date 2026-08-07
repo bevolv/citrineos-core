@@ -816,6 +816,21 @@ export class ConfigurationModule extends AbstractModule {
     );
   }
 
+  @AsHandler(OCPPVersion.OCPP1_6, OCPP1_6_CallAction.DataTransfer)
+  protected async _handleOcpp16DataTransfer(
+    message: IMessage<OCPP1_6.DataTransferRequest>,
+    props?: HandlerProperties,
+  ): Promise<void> {
+    this._logger.debug('DataTransfer received:', message, props);
+
+    const response: OCPP1_6.DataTransferResponse = {
+      status: OCPP1_6.DataTransferResponseStatus.Rejected,
+    };
+
+    const messageConfirmation = await this.sendCallResultWithMessage(message, response);
+    this._logger.debug('DataTransfer response sent: ', messageConfirmation);
+  }
+
   /**
    * Handle OCPP 1.6 response
    */

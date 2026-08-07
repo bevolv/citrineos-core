@@ -61,6 +61,7 @@ export function createDirectusConfig() {
           OCPP2_0_1_CallAction.PublishFirmwareStatusNotification,
           OCPP1_6_CallAction.Heartbeat,
           OCPP1_6_CallAction.BootNotification,
+          OCPP1_6_CallAction.DataTransfer,
         ],
         heartbeatInterval: 60,
         bootRetryInterval: 15,

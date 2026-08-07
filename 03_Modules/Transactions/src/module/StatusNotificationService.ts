@@ -6,9 +6,29 @@ import {
   Variable,
   Connector,
   StatusNotification,
+  StartTransaction,
+  Transaction,
 } from '@citrineos/data';
 import { ILogObj, Logger } from 'tslog';
 import { CrudRepository, OCPP2_0_1, OCPP1_6 } from '@citrineos/base';
+
+/**
+ * OCPP 1.6 has no chargingState field, so it is derived from the connector status.
+ * Statuses absent from this map (Reserved, Unavailable, Faulted) say nothing about
+ * energy transfer and therefore leave the current chargingState untouched.
+ */
+const OCPP16_STATUS_TO_CHARGING_STATE: Partial<
+  Record<OCPP1_6.StatusNotificationRequestStatus, OCPP2_0_1.ChargingStateEnumType>
+> = {
+  [OCPP1_6.StatusNotificationRequestStatus.Charging]: OCPP2_0_1.ChargingStateEnumType.Charging,
+  [OCPP1_6.StatusNotificationRequestStatus.SuspendedEV]:
+    OCPP2_0_1.ChargingStateEnumType.SuspendedEV,
+  [OCPP1_6.StatusNotificationRequestStatus.SuspendedEVSE]:
+    OCPP2_0_1.ChargingStateEnumType.SuspendedEVSE,
+  [OCPP1_6.StatusNotificationRequestStatus.Preparing]: OCPP2_0_1.ChargingStateEnumType.EVConnected,
+  [OCPP1_6.StatusNotificationRequestStatus.Finishing]: OCPP2_0_1.ChargingStateEnumType.EVConnected,
+  [OCPP1_6.StatusNotificationRequestStatus.Available]: OCPP2_0_1.ChargingStateEnumType.Idle,
+};
 
 export class StatusNotificationService {
   protected _componentRepository: CrudRepository<Component>;
@@ -143,9 +163,65 @@ export class StatusNotificationService {
         vendorErrorCode: statusNotificationRequest.vendorErrorCode,
       } as Connector;
       await this._locationRepository.createOrUpdateConnector(tenantId, connector);
+
+      await this.updateChargingStateFromConnectorStatus(
+        tenantId,
+        stationId,
+        statusNotificationRequest.connectorId,
+        statusNotificationRequest.status,
+      );
     } else {
       this._logger.warn(
         `Charging station ${stationId} not found. Status notification cannot be associated with a charging station.`,
+      );
+    }
+  }
+
+  /**
+   * Mirrors an OCPP 1.6 connector status onto the chargingState of the connector's
+   * ongoing transaction, so that it stays in sync with what OCPP 2.0.1 reports natively.
+   */
+  private async updateChargingStateFromConnectorStatus(
+    tenantId: number,
+    stationId: string,
+    connectorId: number,
+    status: OCPP1_6.StatusNotificationRequestStatus,
+  ): Promise<void> {
+    // connectorId 0 refers to the charge point itself rather than a connector,
+    // so it can never map to a transaction.
+    if (connectorId === 0) {
+      return;
+    }
+
+    const chargingState = OCPP16_STATUS_TO_CHARGING_STATE[status];
+    if (!chargingState) {
+      return;
+    }
+
+    try {
+      const transaction = await Transaction.findOne({
+        where: { tenantId, stationId, isActive: true },
+        include: [
+          {
+            model: StartTransaction,
+            required: true,
+            include: [{ model: Connector, required: true, where: { connectorId } }],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+      });
+
+      if (!transaction) {
+        return;
+      }
+
+      if (transaction.chargingState !== chargingState) {
+        await transaction.update({ chargingState });
+      }
+    } catch (error) {
+      this._logger.error(
+        `Failed to update chargingState for station ${stationId} connector ${connectorId}.`,
+        error,
       );
     }
   }

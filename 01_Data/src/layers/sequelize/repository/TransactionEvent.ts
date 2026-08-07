@@ -587,6 +587,9 @@ export class SequelizeTransactionEventRepository
         tenantId,
         stationId,
         isActive: true,
+        // OCPP 1.6 has no chargingState field, so it is derived: a StartTransaction
+        // means energy transfer has begun. StatusNotification refines it from here.
+        chargingState: OCPP2_0_1.ChargingStateEnumType.Charging,
         transactionId: transactionId.toString(),
       });
       newTransaction = await newTransaction.save({ transaction: sequelizeTransaction });
