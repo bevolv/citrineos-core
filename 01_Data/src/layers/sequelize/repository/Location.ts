@@ -113,41 +113,50 @@ export class SequelizeLocationRepository
     const evseId = statusNotification.evseId;
     const connectorId = statusNotification.connectorId;
     const statusNotificationId = statusNotification.id;
-    // delete operation doesn't support "include" in query
-    // so we need to find them at first and then delete
-    const existingLatestStatusNotifications: LatestStatusNotification[] =
-      await this.latestStatusNotification.readAllByQuery(tenantId, {
+
+    // Keep find/delete/create in one transaction to avoid races when concurrent
+    // StatusNotifications update the same connector (Deleted N, expected M).
+    await this.s.transaction(async (transaction) => {
+      const existingLatestStatusNotifications = await LatestStatusNotification.findAll({
         where: {
           stationId,
+          tenantId,
         },
         include: [
           {
             model: StatusNotification,
             where: {
-              evseId,
+              evseId: evseId ?? null,
               connectorId,
             },
-            require: true,
+            required: true,
           },
         ],
+        transaction,
       });
-    const idsToDelete = existingLatestStatusNotifications.map((l) => l.id);
-    await this.latestStatusNotification.deleteAllByQuery(tenantId, {
-      where: {
-        stationId,
-        id: {
-          [Op.in]: idsToDelete,
+
+      const idsToDelete = existingLatestStatusNotifications.map((l) => l.id);
+      if (idsToDelete.length > 0) {
+        await LatestStatusNotification.destroy({
+          where: {
+            stationId,
+            id: {
+              [Op.in]: idsToDelete,
+            },
+          },
+          transaction,
+        });
+      }
+
+      await LatestStatusNotification.create(
+        {
+          tenantId,
+          stationId,
+          statusNotificationId,
         },
-      },
+        { transaction },
+      );
     });
-    await this.latestStatusNotification.create(
-      tenantId,
-      LatestStatusNotification.build({
-        tenantId,
-        stationId,
-        statusNotificationId,
-      }),
-    );
   }
 
   async getChargingStationsByIds(

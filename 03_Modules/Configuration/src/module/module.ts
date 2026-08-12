@@ -816,6 +816,51 @@ export class ConfigurationModule extends AbstractModule {
     );
   }
 
+  @AsHandler(OCPPVersion.OCPP1_6, OCPP1_6_CallAction.DataTransfer)
+  protected async _handleOcpp16DataTransfer(
+    message: IMessage<OCPP1_6.DataTransferRequest>,
+    props?: HandlerProperties,
+  ): Promise<void> {
+    this._logger.debug('DataTransfer received:', message, props);
+
+    const { vendorId, messageId, data } = message.payload;
+    const response: OCPP1_6.DataTransferResponse = {
+      status: OCPP1_6.DataTransferResponseStatus.Rejected,
+    };
+
+    // Vendor autocharge/PnC handshake: charger reports connected EV identity before RemoteStart.
+    // Must return Accepted (CallResult), not Rejected/NotSupported, or the charger rejects RemoteStart.
+    if (messageId?.toLowerCase() === 'identification') {
+      try {
+        const parsed = data ? JSON.parse(data) : undefined;
+        this._logger.info('Vehicle identification DataTransfer accepted', {
+          stationId: message.context.stationId,
+          vendorId,
+          connectorId: parsed?.connectorId,
+          evccId: parsed?.evccId,
+        });
+      } catch {
+        this._logger.warn('identification DataTransfer with non-JSON data', {
+          stationId: message.context.stationId,
+          vendorId,
+          data,
+        });
+      }
+      response.status = OCPP1_6.DataTransferResponseStatus.Accepted;
+    } else if (!messageId) {
+      response.status = OCPP1_6.DataTransferResponseStatus.UnknownMessageId;
+    } else {
+      this._logger.warn('Unhandled DataTransfer messageId; rejecting', {
+        stationId: message.context.stationId,
+        vendorId,
+        messageId,
+      });
+    }
+
+    const messageConfirmation = await this.sendCallResultWithMessage(message, response);
+    this._logger.debug('DataTransfer response sent: ', messageConfirmation);
+  }
+
   /**
    * Handle OCPP 1.6 response
    */

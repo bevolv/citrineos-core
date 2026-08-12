@@ -703,6 +703,7 @@ export class TransactionsModule extends AbstractModule {
       );
     }
     transaction.isActive = false;
+    transaction.chargingState = OCPP2_0_1.ChargingStateEnumType.Idle;
     transaction.stoppedReason = request.reason;
     await transaction.save();
   }
