@@ -43,13 +43,18 @@ export class EVDriverOcpp16Api
     callbackUrl?: string,
     tenantId: number = DEFAULT_TENANT_ID,
   ): Promise<IMessageConfirmation[]> {
+    const remoteStartRequest: OCPP1_6.RemoteStartTransactionRequest = {
+      ...request,
+      connectorId: request.connectorId ?? 1,
+    };
+
     const results = identifier.map((id) =>
       this._module.sendCall(
         id,
         tenantId,
         OCPPVersion.OCPP1_6,
         OCPP1_6_CallAction.RemoteStartTransaction,
-        request,
+        remoteStartRequest,
         callbackUrl,
       ),
     );
