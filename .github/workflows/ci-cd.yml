@@ -130,8 +130,8 @@ jobs:
         echo "BOOTSTRAP_CITRINEOS_DATABASE_USERNAME=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_USERNAME }}" >> ./envfile
         echo "BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD=${{ secrets.BOOTSTRAP_CITRINEOS_DATABASE_PASSWORD }}" >> ./envfile
         echo "EVEREST_IMAGE_TAG=0.0.23" >> ./envfile
-        echo "EVEREST_TARGET_URL=wss://ws.citrine.${{ vars.DOMAIN || 'bevolv.co' }}/cp001" >> ./envfile
-        echo "OCPP_VERSION=two" >> ./envfile
+        echo "EVEREST_TARGET_URL=wss://ws16.citrine.${{ vars.DOMAIN || 'bevolv.co' }}/cp001" >> ./envfile
+        echo "OCPP_VERSION=one" >> ./envfile
         echo "CITRINEOS_API_KEY=${{ secrets.CITRINEOS_API_KEY }}" >> ./envfile
         echo "CITRINEOS_SECRET_KEY=${{ secrets.CITRINEOS_SECRET_KEY }}" >> ./envfile
         echo "HASURA_GRAPHQL_AUTH_HOOK=${{ vars.HASURA_GRAPHQL_AUTH_HOOK }}" >> ./envfile
