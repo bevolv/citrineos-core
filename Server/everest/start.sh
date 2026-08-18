@@ -15,8 +15,14 @@ fi
 http-server /tmp/everest_ocpp_logs -p 8888 &
 
 if [ "$OCPP_VERSION" = "one" ]; then
+    OCPP_16_TARGET_URL="${EVEREST_TARGET_URL#wss://}"
+    OCPP_16_CONFIG_PATH="/ext/dist/share/everest/modules/OCPP/config-docker.json"
+
     chmod +x /ext/build/run-scripts/run-sil-ocpp.sh
-    sed -i "0,/127.0.0.1:8180\/steve\/websocket\/CentralSystemService\// s|127.0.0.1:8180/steve/websocket/CentralSystemService/|${EVEREST_TARGET_URL}|" /ext/dist/share/everest/modules/OCPP/config-docker.json
+    sed -i \
+        -e "s|127.0.0.1:8180/steve/websocket/CentralSystemService/|${OCPP_16_TARGET_URL}|" \
+        -e 's|"SecurityProfile": 1|"SecurityProfile": 2|' \
+        "$OCPP_16_CONFIG_PATH"
     /ext/build/run-scripts/run-sil-ocpp.sh
 else
     rm /ext/dist/share/everest/modules/OCPP201/component_config/custom/EVSE_2.json

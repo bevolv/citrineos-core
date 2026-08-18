@@ -96,7 +96,7 @@ jobs:
           build-args: |
             DOMAIN=${{ env.DOMAIN }}
             EVEREST_IMAGE_TAG=0.0.23
-            OCPP_VERSION=two
+            OCPP_VERSION=one
             
   deploy:
     runs-on: ubuntu-latest
