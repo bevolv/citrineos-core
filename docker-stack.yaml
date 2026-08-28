@@ -253,7 +253,7 @@ services:
       - traefik.http.routers.citrine-ws-16.service=citrine-ws-16
       - traefik.http.services.citrine-ws-16.loadbalancer.server.port=8092
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 10s
