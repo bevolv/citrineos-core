@@ -152,7 +152,8 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio
+    # MinIO community images are source-only now; pin last published Quay releases.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     environment:
       MINIO_ROOT_USER: '${MINIO_ROOT_USER:-minioadmin}'
       MINIO_ROOT_PASSWORD: '${MINIO_ROOT_PASSWORD:-minioadmin}'
@@ -192,7 +193,7 @@ services:
       start_period: 20s
 
   minio-init:
-    image: minio/mc
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     networks:
       - backend
     deploy:
